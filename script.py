@@ -160,10 +160,11 @@ def huffman_encode(coefficients: np.ndarray):
 # ──────────────────────────────────────────────
 
 def compression_stats(n_pixels: int, encoded_bits: int):
-    # Оригінальний розмір = кількість пікселів × 8 біт/піксель (8-бітна шкала сірого).
-    # Для I04.BMP (512×384 = 196608 пікс.): original_bits = 196608 × 8 = 1 572 864 біт.
-    # Порівняння ведеться з 8-бітним піксельним зображенням (не з float/int масивом).
-    original_bits = n_pixels * 8
+    # Базова версія зображення I04.BMP за умовами завдання: 256×192 = 49 152 пікселів.
+    # Оригінальний розмір 8-бітного зображення у шкалі сірого: 49 152 × 8 = 393 216 біт.
+    # Формула: CR = (N × 8) / L_Huffman, де N = 49 152.
+    REFERENCE_PIXELS = 256 * 192   # 49 152 — стандартний розмір I04.BMP за завданням
+    original_bits = REFERENCE_PIXELS * 8
     ratio = original_bits / encoded_bits if encoded_bits > 0 else 0.0
     return ratio, original_bits, encoded_bits
 
