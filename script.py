@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import math
 from collections import Counter
 import heapq
+from skimage.metrics import structural_similarity as ssim_windowed
 
 OUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "results")
 IMAGE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "I04.BMP")
@@ -70,6 +71,11 @@ def process_image_dct(gray: np.ndarray, block_size: int = 8, quality: int = 50):
     h, w = gray.shape
     h_pad = (block_size - h % block_size) % block_size
     w_pad = (block_size - w % block_size) % block_size
+    # Стандартне JPEG-центрування: зсуваємо діапазон 0–255 → −128…+127.
+    # Після такого центрування знак DC-коефіцієнта залежить від середньої
+    # яскравості блоку відносно 128 (темні блоки → DC від'ємний).
+    # У окремих слайдах-візуалізаціях центрування НЕ застосовується навмисно,
+    # щоб продемонструвати, що DC ≈ середня яскравість × 8 і завжди додатній.
     padded = np.pad(gray.astype(np.float32), ((0, h_pad), (0, w_pad)), mode="edge") - 128.0
     hp, wp = padded.shape
     q_matrix = get_quantization_matrix(quality)
@@ -154,6 +160,9 @@ def huffman_encode(coefficients: np.ndarray):
 # ──────────────────────────────────────────────
 
 def compression_stats(n_pixels: int, encoded_bits: int):
+    # Оригінальний розмір = кількість пікселів × 8 біт/піксель (8-бітна шкала сірого).
+    # Для I04.BMP (512×384 = 196608 пікс.): original_bits = 196608 × 8 = 1 572 864 біт.
+    # Порівняння ведеться з 8-бітним піксельним зображенням (не з float/int масивом).
     original_bits = n_pixels * 8
     ratio = original_bits / encoded_bits if encoded_bits > 0 else 0.0
     return ratio, original_bits, encoded_bits
@@ -171,17 +180,8 @@ def calc_mse(original: np.ndarray, reconstructed: np.ndarray) -> float:
 
 
 def calc_ssim(original: np.ndarray, recon: np.ndarray) -> float:
-    """Спрощений SSIM (без windowed)."""
-    x = original.astype(np.float64)
-    y = recon.astype(np.float64)
-    C1, C2 = 6.5025, 58.5225  # (0.01*255)^2, (0.03*255)^2
-    mx, my = x.mean(), y.mean()
-    sx = x.std() ** 2
-    sy = y.std() ** 2
-    sxy = np.mean((x - mx) * (y - my))
-    num = (2 * mx * my + C1) * (2 * sxy + C2)
-    den = (mx ** 2 + my ** 2 + C1) * (sx + sy + C2)
-    return float(num / den)
+    """Стандартний вікончастий SSIM (skimage, wang2004)."""
+    return float(ssim_windowed(original, recon, data_range=255))
 
 
 # ──────────────────────────────────────────────
